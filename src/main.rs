@@ -89,8 +89,6 @@ fn part2(lines: &Vec<String>) -> u64 {
         println!("Invalid input, width = {}, height = {}, len = {}", width, height, width * height);
         return 0;
     }
-    let start_index = tile_chars.find('S').unwrap_or(0);
-
     let mut tile_map = vec![vec![Tile::Rock; width]; height];
     for (i, ch) in tile_chars.char_indices() {
         let tile_x = i % height;
@@ -101,95 +99,7 @@ fn part2(lines: &Vec<String>) -> u64 {
         }
     }
 
-    // Perform BFS to find distance from each tile to center
-    let mut distances = vec![vec![std::usize::MAX; width]; height];
-    let mut bfs_queue = VecDeque::new();
-
-    distances[height / 2][width / 2] = 0;
-    bfs_queue.push_back((height / 2, width / 2));
-    while !bfs_queue.is_empty() {
-        let (x, y) = bfs_queue.pop_front().unwrap();
-        let curr_tile_distance = distances[y][x];
-        if x + 1 < width && tile_map[y][x + 1] == Tile::Garden && distances[y][x + 1] == std::usize::MAX {
-            distances[y][x + 1] = curr_tile_distance + 1;
-            bfs_queue.push_back((x + 1, y));
-        }
-        if x >= 1 && tile_map[y][x - 1] == Tile::Garden && distances[y][x - 1] == std::usize::MAX {
-            distances[y][x - 1] = curr_tile_distance + 1;
-            bfs_queue.push_back((x - 1, y));
-        }
-        if y + 1 < height && tile_map[y + 1][x] == Tile::Garden && distances[y + 1][x] == std::usize::MAX {
-            distances[y + 1][x] = curr_tile_distance + 1;
-            bfs_queue.push_back((x, y + 1));
-        }
-        if y >= 1 && tile_map[y - 1][x] == Tile::Garden && distances[y - 1][x] == std::usize::MAX {
-            distances[y - 1][x] = curr_tile_distance + 1;
-            bfs_queue.push_back((x, y - 1));
-        }
-    }
-
-    println!("Max distance: {}", distances.iter().flatten().filter(|d| **d < std::usize::MAX).max().unwrap());
-    
-    // Count number of reachable tiles on each type of tile
-    // Corners are grouped into one, since it's symmetrical and they're equal in all 4 directions
-    let mut full_even_reach_count = 0;
-    let mut full_odd_reach_count = 0;
-    let mut even_corner_reach_count = 0;
-    let mut odd_corner_reach_count = 0;
-    for j in 0..height {
-        for i in 0..width {
-            if tile_map[j][i] == Tile::Garden {
-                if (i + j) % 2 == 0 {
-                    full_even_reach_count += 1;
-                    if distances[j][i] > (height / 2) {
-                        even_corner_reach_count += 1;
-                    }
-                }
-                else {
-                    full_odd_reach_count += 1;
-                    if distances[j][i] > (height / 2) {
-                        odd_corner_reach_count += 1;
-                    }
-                }
-            }
-        }
-    }
-    /*
-    for j in 0..height {
-        for i in 0..width {
-            if tile_map[j][i] == Tile::Garden {
-                if (i + j) % 2 == 0 {
-                    full_even_reach_count += 1;
-                    if i.abs_diff(width / 2) + j.abs_diff(height / 2) > (height / 2) {
-                        even_corner_reach_count += 1;
-                    }
-                }
-                else {
-                    full_odd_reach_count += 1;
-                    if i.abs_diff(width / 2) + j.abs_diff(height / 2) > (height / 2) {
-                        odd_corner_reach_count += 1;
-                    }
-                }
-            }
-        }
-    }
-    */
-
-    let num_steps = 26501365;
-    //let num_steps = 65 + 131 * 2;
-    let chunk_radius: u64 = ((num_steps - height / 2) / height).try_into().unwrap();
-    println!("chunk_radius: {chunk_radius}");
-    println!("full_even_reach_count: {full_even_reach_count}, full_odd_reach_count: {full_odd_reach_count}, even_corner_reach_count: {even_corner_reach_count}, odd_corner_reach_count: {odd_corner_reach_count}");
-    
-    let num_odd_chunks = (chunk_radius + 1) * (chunk_radius + 1);
-    let num_even_chunks = chunk_radius * chunk_radius;
-    let num_odd_corners = (chunk_radius + 1); // Odd corners are removed
-    let num_even_corners = chunk_radius;
-
-    let total = num_even_chunks * full_even_reach_count + num_odd_chunks * full_odd_reach_count + num_even_corners * even_corner_reach_count + num_odd_corners * odd_corner_reach_count;
-    println!("Total: {}", total);
-    //return num_even_chunks * full_even_reach_count + num_odd_chunks * full_odd_reach_count + num_even_corners * even_corner_reach_count + num_odd_corners * odd_corner_reach_count;
-    
+    // Simulate 5x5 to find reachable tile count on each tile variation
     let sim_map_width = 5 * width;
     let sim_map_height = 5 * height;
     let mut sim_tile_map = vec![vec![Tile::Rock; sim_map_width]; sim_map_height]; // Simulate a 5x5 in order to get all odd/even and corner variations
@@ -233,92 +143,61 @@ fn part2(lines: &Vec<String>) -> u64 {
     }
 
     let num_sim_steps = 2 * width + width / 2;
-    let reachable = sim_distances.iter().map(|row| row.iter().map(|d| *d <= num_sim_steps && (d + num_sim_steps) % 2 == 0).collect()).collect();
+    let reachable: Vec<Vec<bool>> = sim_distances.iter().map(|row| row.iter().map(|d| *d <= num_sim_steps && (d + num_sim_steps) % 2 == 0).collect()).collect();
+    /*
+    for j in 0..sim_map_height {
+        for i in 0..sim_map_width {
+            if reachable[j][i] {
+                if sim_tile_map[j][i] == Tile::Garden {
+                    print!("O");
+                }
+                else {
+                    println!("Error: Tile ({i}, {j}) is reachable despite being a rock");
+                }
+            }
+            else {
+                if sim_tile_map[j][i] == Tile::Garden {
+                    print!(".");
+                }
+                else {
+                    print!("#");
+                }
+            }
+        }
+        println!("");
+    }
+    */
 
     let full_odd_reach = count_reachable(&reachable, 2 * width, 3 * width, 2 * height, 3 * height);
     let full_even_reach = count_reachable(&reachable, 3 * width, 4 * width, 2 * height, 3 * height);
+
     let odd_corner_top_reach = count_reachable(&reachable, 2 * width, 3 * width, 0, height);
     let odd_corner_bottom_reach = count_reachable(&reachable, 2 * width, 3 * width, 4 * height, 5 * height);
     let even_corner_tl_reach = count_reachable(&reachable, width, 2 * width, 0, height);
     let even_corner_tr_reach = count_reachable(&reachable, 3 * width, 4 * width, 0, height);
     let even_corner_bl_reach = count_reachable(&reachable, width, 2 * width, 4 * height, 5 * height);
     let even_corner_br_reach = count_reachable(&reachable, 3 * width, 4 * width, 4 * height, 5 * height);
-    // let total_reachable = count_reachable(&reachable, 0, sim_map_width, 0, sim_map_height);
+    let even_corner_reach = even_corner_tl_reach + even_corner_tr_reach + even_corner_bl_reach + even_corner_br_reach;
+    let odd_corner_reach = 2 * full_odd_reach - (odd_corner_top_reach + odd_corner_bottom_reach);
+    
     println!("full_odd_reach: {full_odd_reach}, full_even_reach: {full_even_reach}");
     println!("odd_corner_top_reach: {odd_corner_top_reach}, odd_corner_bottom_reach: {odd_corner_bottom_reach}");
     println!("even_corner_tl_reach: {even_corner_tl_reach}, even_corner_tr_reach: {even_corner_tr_reach}, even_corner_bl_reach: {even_corner_bl_reach}, even_corner_br_reach: {even_corner_br_reach}");
+
+    // Compute total reachable tiles
+    let num_steps = 26501365;
+    let chunk_radius: u64 = ((num_steps - height / 2) / height).try_into().unwrap();
+    println!("chunk_radius: {chunk_radius}");
+    println!("full_even_reach: {full_even_reach}, full_odd_reach: {full_odd_reach}, even_corner_reach: {even_corner_reach}, odd_corner_reach: {odd_corner_reach}");
     
-    let even_corner_reach_count = even_corner_tl_reach + even_corner_tr_reach + even_corner_bl_reach + even_corner_tr_reach;
-    let odd_corner_reach_count = 2 * full_odd_reach - (odd_corner_top_reach + odd_corner_bottom_reach);
-    let total = num_even_chunks * full_even_reach + num_odd_chunks * full_odd_reach + num_even_corners * even_corner_reach_count - num_odd_corners * odd_corner_reach_count;
-    println!("total: {total}");
+    let num_odd_chunks = (chunk_radius + 1) * (chunk_radius + 1);
+    let num_even_chunks = chunk_radius * chunk_radius;
+    let num_odd_corners = (chunk_radius + 1); // Odd corners are removed
+    let num_even_corners = chunk_radius;
 
-    /*
-    let sim_map_width = 5 * width + 2;
-    let sim_map_height = 5 * height + 2;
-    let mut tile_map = vec![vec![Tile::Rock; sim_map_width]; sim_map_height]; // Simulate a 5x5 in order to get all odd/even and corner variations
-    for chunk_y in 0..5 {
-        for chunk_x in 0..5 {
-            for (i, ch) in tile_chars.char_indices() {
-                let tile_x = i % height;
-                let tile_y = i / height;
-                tile_map[tile_y + chunk_y * height + 1][tile_x + chunk_x * width + 1] = match ch {
-                    '#' => Tile::Rock,
-                    _ => Tile::Garden
-                }
-            }
-        }
-    }
-
-    // Generate odd/even and corner variations
-    //let num_steps = sim_map_width / 2 - 1;
-    let num_steps = 10;
-
-    println!("Simulating {} steps", num_steps);
-    let mut reachable = vec![vec![false; sim_map_height]; sim_map_width];
-    reachable[sim_map_height / 2][sim_map_width / 2] = true;
-    for _ in 0..num_steps {
-        let mut new_reachable = vec![vec![false; sim_map_height]; sim_map_width];
-        for j in 1..(sim_map_height - 1) {
-            for i in 1..(sim_map_width - 1) {
-                if tile_map[j][i] == Tile::Garden && (reachable[j - 1][i] || reachable[j + 1][i] || reachable[j][i - 1] || reachable[j][i + 1]) {
-                    new_reachable[j][i] = true;
-                }
-            }
-        }
-        reachable = new_reachable;
-    }
-    for j in 0..sim_map_height {
-        for i in 0..sim_map_width {
-            if reachable[j][i] {
-                print!("O");
-            }
-            else if tile_map[j][i] == Tile::Garden {
-                print!(".")
-            }
-            else {
-                print!("#");
-            }
-        }
-        println!("");
-    }
-
-    let full_odd_reach = count_reachable(&reachable, 2 * width + 1, 3 * width + 1, 2 * height + 1, 3 * height + 1);
-    let full_even_reach = count_reachable(&reachable, 3 * width + 1, 4 * width + 1, 2 * height + 1, 3 * height + 1);
-    let odd_corner_top_reach = count_reachable(&reachable, 2 * width + 1, 3 * width + 1, 1, height + 1);
-    let odd_corner_bottom_reach = count_reachable(&reachable, 2 * width + 1, 3 * width + 1, 4 * height + 1, 5 * height + 1);
-    let even_corner_tl_reach = count_reachable(&reachable, width + 1, 2 * width + 1, 1, height + 1);
-    let even_corner_tr_reach = count_reachable(&reachable, 3 * width + 1, 4 * width + 1, 1, height + 1);
-    let even_corner_bl_reach = count_reachable(&reachable, width + 1, 2 * width + 1, 4 * height + 1, 5 * height + 1);
-    let even_corner_br_reach = count_reachable(&reachable, 3 * width + 1, 4 * width + 1, 4 * height + 1, 5 * height + 1);
-    println!("full_odd_reach: {full_odd_reach}, full_even_reach: {full_even_reach}");
-    println!("odd_corner_top_reach: {odd_corner_top_reach}, odd_corner_bottom_reach: {odd_corner_bottom_reach}");
-    println!("even_corner_tl_reach: {even_corner_tl_reach}, even_corner_tr_reach: {even_corner_tr_reach}, even_corner_bl_reach: {even_corner_bl_reach}, even_corner_br_reach: {even_corner_br_reach}");
-    */
-    
-    // println!("{} reachable", count_reachable(&reachable, 0, sim_map_width, 0, sim_map_height));
-    /**/
-    return 0;
+    let total = num_even_chunks * full_even_reach + num_odd_chunks * full_odd_reach + num_even_corners * even_corner_reach - num_odd_corners * odd_corner_reach;
+    println!("Total: {}", total);
+    return total;
 }
 
 fn count_reachable(reachable: &Vec<Vec<bool>>, start_x: usize, end_x: usize, start_y: usize, end_y: usize) -> u64 {
