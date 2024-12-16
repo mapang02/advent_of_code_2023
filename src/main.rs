@@ -1,8 +1,9 @@
 #[macro_use]
 extern crate nalgebra;
-use std::io;
-use nalgebra::{Matrix6, Vector6};
-use fraction::Fraction;
+extern crate fraction;
+use std::{io, ops::{Add, Div, Mul}, str::FromStr};
+use fraction::{Fraction, GenericFraction, ToPrimitive};
+type F128 = GenericFraction<i128>;
 
 fn main() {
     let lines = io::stdin().lines().map(|l| l.unwrap_or_default().chars().collect()).collect();
@@ -12,15 +13,15 @@ fn main() {
     println!("Part 2: {}", part2);
 }
 
-struct Vector {
-    x: f64,
-    y: f64,
-    z: f64
+struct Vector<T: Div<Output = T>> {
+    x: T,
+    y: T,
+    z: T
 }
 
 fn part1(lines: &Vec<String>) -> u32 {
     // Parse input
-    let hailstones: Vec<(Vector, Vector)> = lines.iter().map(|ln| {
+    let hailstones: Vec<(Vector<f64>, Vector<f64>)> = lines.iter().map(|ln| {
         let (pos_str, vel_str) = ln.split_once("@").unwrap();
         //let pos: Vec<_> = pos_str.trim().splitn(3, ", ").map(|s| s.parse::<i64>().unwrap()).collect();
         //let vel: Vec<_> = vel_str.trim().splitn(3, ", ").map(|s| s.parse::<i64>().unwrap()).collect();
@@ -65,67 +66,87 @@ fn part1(lines: &Vec<String>) -> u32 {
     return num_collisions;
 }
 
-fn cross_product(a: (f64, f64, f64), b: (f64, f64, f64)) -> (f64, f64, f64) {
-    return (a.1 * b.2 - a.2 * b.1, a.2 * b.0 - a.0 * b.2, a.0 * b.1 - a.1 * b.0);
-}
-
-fn part2(lines: &Vec<String>) -> u32 {
+fn part2(lines: &Vec<String>) -> u64 {
     // Parse input
-    let hailstones: Vec<(Vector, Vector)> = lines.iter().map(|ln| {
+    let hailstones: Vec<(Vector<_>, Vector<_>)> = lines.iter().map(|ln| {
         let (pos_str, vel_str) = ln.split_once("@").unwrap();
-        //let pos: Vec<_> = pos_str.trim().splitn(3, ", ").map(|s| s.parse::<i64>().unwrap()).collect();
-        //let vel: Vec<_> = vel_str.trim().splitn(3, ", ").map(|s| s.parse::<i64>().unwrap()).collect();
-        let pos: Vec<_> = pos_str.splitn(3, ", ").map(|s| s.trim().parse::<f64>().unwrap()).collect();
-        let vel: Vec<_> = vel_str.splitn(3, ", ").map(|s| s.trim().parse::<f64>().unwrap()).collect();
+        //let pos: Vec<_> = pos_str.trim().splitn(3, ", ").map(|s| s.trim().parse::<f64>().unwrap()).collect();
+        //let vel: Vec<_> = vel_str.trim().splitn(3, ", ").map(|s| s.trim().parse::<f64>().unwrap()).collect();
+        let pos: Vec<_> = pos_str.splitn(3, ", ").map(|s| F128::from_str(s.trim()).unwrap()).collect();
+        let vel: Vec<_> = vel_str.splitn(3, ", ").map(|s| F128::from_str(s.trim()).unwrap()).collect();
         return (
             Vector { x: pos[0], y: pos[1], z: pos[2] },
             Vector { x: vel[0], y: vel[1], z: vel[2] }
         )
     }).collect();
 
-    // Solve a system of linear equations to determine p0_x, p0_y, v0_x, v0_y
+    // Solve a system of linear equations to determine rock_p_x, rock_p_y, rock_v_x, rock_v_y
     // Perform Gaussian elimination using fraction objects to avoid precision errors
-    let mut m_vec = vec![0.0; 36];
-    let mut b_vec = vec![0.0; 6];
-    for i in 0..6 {
-        let (pos_i, vel_i) = &hailstones[i];
+    let f = Fraction::from(0).into_fraction::<i128>();
+    let mut m = [[F128::from(0); 4]; 4];
+    let mut b = [F128::from(0); 4];
+    //let mut m = [[0.0; 4]; 4];
+    //let mut b = [0.0; 4];
+    let (hail_p0, hail_v0) = &hailstones[0];
+    for i in 0..4 {
+        let (hail_p, hail_v) = &hailstones[i + 1];
+        m[i][0] = F128::from(hail_v0.y - hail_v.y);
+        m[i][1] = F128::from(hail_v.x - hail_v0.x);
+        m[i][2] = F128::from(hail_p.y - hail_p0.y);
+        m[i][3] = F128::from(hail_p0.x - hail_p.x);
+        b[i] = F128::from((hail_p0.x * hail_v0.y - hail_p0.y * hail_v0.x) - (hail_p.x * hail_v.y - hail_p.y * hail_v.x));
         /*
-        m_vec[0] = vel_i.y;
-        m_vec[6 + i] = -vel_i.x;
-        m_vec[12 + i] = -pos_i.y;
-        m_vec[18 + i] = pos_i.x;
-        m_vec[24 + i] = -1.0;
-        m_vec[30 + i] = 1.0;
+        m[i][0] = hail_v0.y - hail_v.y;
+        m[i][1] = hail_v.x - hail_v0.x;
+        m[i][2] = hail_p.y - hail_p0.y;
+        m[i][3] = hail_p0.x - hail_p.x;
+        b[i] = (hail_p0.x * hail_v0.y - hail_p0.y * hail_v0.x) - (hail_p.x * hail_v.y - hail_p.y * hail_v.x);
         */
-        m_vec[6 * i] = vel_i.y;
-        m_vec[6 * i + 1] = -vel_i.x;
-        m_vec[6 * i + 2] = -pos_i.y;
-        m_vec[6 * i + 3] = pos_i.x;
-        m_vec[6 * i + 4] = -1.0;
-        m_vec[6 * i + 5] = 1.0;
-        /*
-        m_vec[0] = (6 * i) as f64;
-        m_vec[6 + i] = (6 * i + 1) as f64;
-        m_vec[12 + i] = (6 * i + 2) as f64;
-        m_vec[18 + i] = (6 * i + 3) as f64;
-        m_vec[24 + i] = (6 * i + 4) as f64;
-        m_vec[30 + i] = (6 * i + 5) as f64;
-        m_vec[6 * i] = (6 * i) as f64;
-        m_vec[6 * i + 1] = (6 * i + 1) as f64;
-        m_vec[6 * i + 2] = (6 * i + 2) as f64;
-        m_vec[6 * i + 3] = (6 * i + 3) as f64;
-        m_vec[6 * i + 4] = (6 * i + 4) as f64;
-        m_vec[6 * i + 5] = (6 * i + 5) as f64;
-        */
-
-        b_vec[i] = pos_i.x * vel_i.y - pos_i.y * vel_i.x;
     }
-    let m = Matrix6::from_vec(m_vec.iter().map(|n| Fraction::from(n as i64)).collect());
-    let b = Vector6::from_vec(b_vec);
-    let m_inv = m.try_inverse().unwrap();
     println!("{:?}", m);
     println!("{:?}", b);
-    println!("{:?}", m_inv * b);
+    for i in 0..4 { // Forward elimination
+        // Multiply row by ratio which makes first coefficient equal to 1
+        let ratio = m[i][i].recip();
+        //let ratio = 1.0 / m[i][i];
+        for j in i..4 {
+            m[i][j] *= ratio;
+        }
+        b[i] *= ratio;
 
-    return 0;   
+        // Set values below diagonal to 0
+        for i_next in (i + 1)..4 {
+            let mult_ratio = m[i_next][i];
+            for j in i..4 {
+                m[i_next][j] -= mult_ratio * m[i][j];
+            }
+            b[i_next] -= mult_ratio * b[i];
+        }
+    }
+    println!("{:?}", m);
+    println!("{:?}", b);
+    for i in (1..4).rev() { // Back substitution
+        for i_next in (0..i).rev() {
+            b[i_next] -= m[i_next][i] * b[i];
+            m[i_next][i] -= m[i_next][i] * m[i][i];
+        }
+    }
+
+    // Compute rock_p_z and rock_v_z from other values
+    let rock_p_x = b[0];
+    let rock_p_y = b[1];
+    let rock_v_x = b[2];
+    let rock_v_y = b[3];
+    
+    let (p1, v1) = &hailstones[1];
+    let (p2, v2) = &hailstones[2];
+    let t1 = (rock_p_x - p1.x) / (v1.x - rock_v_x);
+    let t2 = (rock_p_x - p2.x) / (v2.x - rock_v_x);
+    let rock_v_z = (p1.z + v1.z * t1 - p2.z - v2.z * t2) / (t1 - t2);
+    let rock_p_z = (p1.z + v1.z * t1) - rock_v_z * t1;
+
+    println!("Pos: ({}, {}, {})", rock_p_x.to_i128().unwrap(), rock_p_y.to_i128().unwrap(), rock_p_z.to_i128().unwrap());
+    println!("Vel: ({}, {}, {})", rock_v_x.to_i128().unwrap(), rock_v_y.to_i128().unwrap(), rock_v_z.to_i128().unwrap());
+    //return (rock_p_x + rock_p_y + rock_p_z) as u64;
+    return (rock_p_x + rock_p_y + rock_p_z).to_u64().unwrap();   
 }
