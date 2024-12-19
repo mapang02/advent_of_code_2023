@@ -1,9 +1,8 @@
 #[macro_use]
-extern crate nalgebra;
 extern crate fraction;
-use std::{io, ops::{Add, Div, Mul}, str::FromStr};
-use fraction::{Fraction, GenericFraction, ToPrimitive};
-type F128 = GenericFraction<i128>;
+use std::{io, ops::{Add, Sub, Div, Mul}, str::FromStr};
+use fraction::{GenericFraction, ToPrimitive};
+type F128 = GenericFraction<u128>;
 
 fn main() {
     let lines = io::stdin().lines().map(|l| l.unwrap_or_default().chars().collect()).collect();
@@ -13,7 +12,7 @@ fn main() {
     println!("Part 2: {}", part2);
 }
 
-struct Vector<T: Div<Output = T>> {
+struct Vector<T: Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Copy> { // Generic 3D vector for numeric types
     x: T,
     y: T,
     z: T
@@ -66,12 +65,10 @@ fn part1(lines: &Vec<String>) -> u32 {
     return num_collisions;
 }
 
-fn part2(lines: &Vec<String>) -> u64 {
+fn part2(lines: &Vec<String>) -> i128 {
     // Parse input
     let hailstones: Vec<(Vector<_>, Vector<_>)> = lines.iter().map(|ln| {
         let (pos_str, vel_str) = ln.split_once("@").unwrap();
-        //let pos: Vec<_> = pos_str.trim().splitn(3, ", ").map(|s| s.trim().parse::<f64>().unwrap()).collect();
-        //let vel: Vec<_> = vel_str.trim().splitn(3, ", ").map(|s| s.trim().parse::<f64>().unwrap()).collect();
         let pos: Vec<_> = pos_str.splitn(3, ", ").map(|s| F128::from_str(s.trim()).unwrap()).collect();
         let vel: Vec<_> = vel_str.splitn(3, ", ").map(|s| F128::from_str(s.trim()).unwrap()).collect();
         return (
@@ -82,11 +79,8 @@ fn part2(lines: &Vec<String>) -> u64 {
 
     // Solve a system of linear equations to determine rock_p_x, rock_p_y, rock_v_x, rock_v_y
     // Perform Gaussian elimination using fraction objects to avoid precision errors
-    let f = Fraction::from(0).into_fraction::<i128>();
     let mut m = [[F128::from(0); 4]; 4];
     let mut b = [F128::from(0); 4];
-    //let mut m = [[0.0; 4]; 4];
-    //let mut b = [0.0; 4];
     let (hail_p0, hail_v0) = &hailstones[0];
     for i in 0..4 {
         let (hail_p, hail_v) = &hailstones[i + 1];
@@ -95,16 +89,7 @@ fn part2(lines: &Vec<String>) -> u64 {
         m[i][2] = F128::from(hail_p.y - hail_p0.y);
         m[i][3] = F128::from(hail_p0.x - hail_p.x);
         b[i] = F128::from((hail_p0.x * hail_v0.y - hail_p0.y * hail_v0.x) - (hail_p.x * hail_v.y - hail_p.y * hail_v.x));
-        /*
-        m[i][0] = hail_v0.y - hail_v.y;
-        m[i][1] = hail_v.x - hail_v0.x;
-        m[i][2] = hail_p.y - hail_p0.y;
-        m[i][3] = hail_p0.x - hail_p.x;
-        b[i] = (hail_p0.x * hail_v0.y - hail_p0.y * hail_v0.x) - (hail_p.x * hail_v.y - hail_p.y * hail_v.x);
-        */
     }
-    println!("{:?}", m);
-    println!("{:?}", b);
     for i in 0..4 { // Forward elimination
         // Multiply row by ratio which makes first coefficient equal to 1
         let ratio = m[i][i].recip();
@@ -123,8 +108,6 @@ fn part2(lines: &Vec<String>) -> u64 {
             b[i_next] -= mult_ratio * b[i];
         }
     }
-    println!("{:?}", m);
-    println!("{:?}", b);
     for i in (1..4).rev() { // Back substitution
         for i_next in (0..i).rev() {
             b[i_next] -= m[i_next][i] * b[i];
@@ -147,6 +130,5 @@ fn part2(lines: &Vec<String>) -> u64 {
 
     println!("Pos: ({}, {}, {})", rock_p_x.to_i128().unwrap(), rock_p_y.to_i128().unwrap(), rock_p_z.to_i128().unwrap());
     println!("Vel: ({}, {}, {})", rock_v_x.to_i128().unwrap(), rock_v_y.to_i128().unwrap(), rock_v_z.to_i128().unwrap());
-    //return (rock_p_x + rock_p_y + rock_p_z) as u64;
-    return (rock_p_x + rock_p_y + rock_p_z).to_u64().unwrap();   
+    return (rock_p_x + rock_p_y + rock_p_z).to_i128().unwrap();   
 }
