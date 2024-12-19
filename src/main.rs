@@ -188,20 +188,26 @@ fn part2(grid: &Vec<Vec<char>>) -> usize {
     let start_node = nodes.get(&(0, start_col)).unwrap();
     let end_node_coords = (height - 1, end_col);
     curr_path.push(start_node.pos);
-    curr_path_edges.insert(start_node.pos, (start_node.pos, 1));
+    curr_path_edges.insert(start_node.pos, (start_node.pos, 0));
     for (n, dist) in start_node.neighbors.iter() {
         explore_stack.push((start_node.pos, *n, *dist));
     }
     while explore_stack.len() > 0 {
         let (prev_coords, curr_coords, dist) = explore_stack.pop().unwrap();
-        println!("Exploring {:?}", curr_coords);
+        while prev_coords != *curr_path.last().unwrap() {
+            let last_node = curr_path.pop().unwrap();
+            curr_path_edges.remove(&last_node);
+        }
+        //println!("Exploring {:?} from {:?}", curr_coords, prev_coords);
+        //println!("{:?}", explore_stack);
+        //println!("{:?}", curr_path);
         if !curr_path_edges.contains_key(&curr_coords) {
             // If path completed, calculate total length
             if curr_coords == end_node_coords {
                 curr_path_edges.insert(curr_coords, (prev_coords, dist));
                 let path_length = curr_path_edges.values().map(|(_, dist)| *dist).sum::<usize>();
-                print_path(&curr_path_edges, (height - 1, end_col));
-                println!("Length: {}", path_length);
+                //print_path(&curr_path_edges, (height - 1, end_col));
+                //println!("Length: {}", path_length);
                 if path_length > tentative_max_length {
                     tentative_max_length = path_length;
                 }
@@ -222,11 +228,6 @@ fn part2(grid: &Vec<Vec<char>>) -> usize {
                 for (next_coords, next_dist) in unvisited_neighbors {
                     explore_stack.push((curr_coords, *next_coords, *next_dist));
                 }
-            }
-            else if explore_stack.len() > 0 && explore_stack.last().unwrap().0 != prev_coords { // Dead end reached, remove previous node from path if all branches are explored
-                let last_node = curr_path.pop().unwrap();
-                curr_path_edges.remove(&last_node);
-                println!("Backtracking from {:?}", last_node);
             }
         }
     }
