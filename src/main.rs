@@ -71,7 +71,7 @@ fn part2(lines: &Vec<String>) -> u32 {
             "9" | "enin" => 9,
             _ => 0
         };
-        println!("{first_digit}{last_digit}");
+        //println!("{first_digit}{last_digit}");
         subtotal += 10 * first_digit + last_digit;
     }
     return subtotal;
