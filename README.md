@@ -1,1 +1,1 @@
-My solutions for Advent of Code 2023. My first attempts to learn Rust.
+My solutions for Advent of Code 2023. I started these problems in order to learn Rust for the first time.
