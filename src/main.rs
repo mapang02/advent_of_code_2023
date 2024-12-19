@@ -1,6 +1,4 @@
 use std::io::{self, Read};
-use std::collections::HashMap;
-
 fn main() {
     let mut input_str = String::new();
     let _ = io::stdin().read_to_string(&mut input_str);
@@ -26,7 +24,6 @@ fn part1(input_str: &String) -> i32 {
 }
 
 fn part2(input_str: &String) -> i32 {
-    //let boxes = HashMap::new();
     let mut boxes: [Vec<(&str, i32)>; 256] = std::array::from_fn(|_| Vec::new());
     let cmd_inputs: Vec<&str> = input_str.split(",").collect();
     for cmd in cmd_inputs {
